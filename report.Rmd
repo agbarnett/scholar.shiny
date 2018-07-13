@@ -1,0 +1,99 @@
+---
+title: "List of papers from Google Scholar"
+#author: Adrian Barnett
+date: "`r format(Sys.time(), '%d %B %Y')`"
+fontsize: 12pt
+output: word_document
+params:
+  google.id: NA
+  years.since: NA
+  spacer: NA
+  order: NA
+  max.authors: NA
+  style: NA
+---
+
+```{r setup, include=FALSE}
+library(scholar)
+source('scholar.R')
+source('paste5.R')
+
+paramsx = list()
+paramsx$google.id = 'lhc97roAAAAJ'
+paramsx$style = 'APA'
+paramsx$years.since = 2012
+paramsx$spacer = ', '
+paramsx$max.authors = 3
+
+knitr::opts_chunk$set(echo = FALSE, warnings=FALSE, comment='')
+# function to get filtered papers
+my.filter = function(scholar.input, years.since=2000, max.authors=3, spacer=', ', order='ayear'){
+    res = data.frame(NULL)
+    res = scholar.input$papers # get papers from list
+    # add authors # commented out Sep 2017 as Scholar does not yet have separate authors
+  #  if(max.authors == 1){res$Authors = scholar.input$authors[,1]}
+   # if(max.authors > 1){
+   #   upper.limit = min(c(max.authors, ncol(scholar.input$authors)))
+   #   res$Authors = apply(scholar.input$authors[, 1:upper.limit], 1, paste5, collapse=spacer) # 
+   # } 
+   # # add et al
+   # if(max.authors < ncol(scholar.input$authors)){ # don't add if at max author number
+   #   index = scholar.input$authors[, max.authors+1] != '' # something in next author
+   #   res$Authors[index] = paste(res$Authors[index], spacer, 'et al', sep='')
+   # }
+    # filter by year:
+    res = subset(res, Year>= years.since) 
+    
+    ## ordering  (this part comes from server)
+    papers = res
+    papers$Year = as.numeric(papers$Year) # for sorting
+    if(order=='ayear'){papers = arrange(papers, -Year)} #
+    if(order=='dyear'){papers = arrange(papers, Year)} # 
+    if(order=='journal'){papers = arrange(papers, Journal, Year)} # 
+    papers$Year = as.character(papers$Year) # looks better as character
+    ## return
+    return(papers)
+  }
+```
+
+```{r list.papers, results='asis'}
+results = scholar(paramsx$google.id)
+cat('Publication report for ', results$name, '.\n', sep='')
+cat('  \n') # line break
+cat('Earliest year of papers =', paramsx$years.since, '.\n', sep='')
+papers.sorted = 'ascending year'
+if(paramsx$order=='dyear'){papers.sorted = 'descending year'}
+if(paramsx$order=='journal'){papers.sorted = 'journal name'}
+cat('Papers sorted by ', papers.sorted, '.\n', sep='')
+cat('  \n') # link break
+papers = my.filter(results, max.authors=paramsx$max.authors, order=paramsx$order,
+                   years.since=paramsx$years.since, spacer=paramsx$spacer)
+# APA?
+# to do, add Harvard
+for (k in 1:nrow(papers)){
+if(paramsx$style == 'Harvard'){
+  cat('- ', papers$Authors[k], ", ", papers$Year[k], ", '", papers$Title[k], "', *", papers$Journal[k], '*', sep='')
+  # add volume/issue/doi if not null
+  if(is.na(papers$Volume[k])==F){cat(', vol. ', papers$Volume[k], sep='')}  
+  if(is.na(papers$Issue[k])==F){cat(', no. ', papers$Issue[k], sep='')}  
+  if(is.na(papers$Pages[k])==F){
+    pages = papers$Pages[k]
+    pages = gsub('--', '-', pages) # try to get en dash?
+    cat(', pp. ', pages, sep='')
+  }  
+#  if(is.na(papers$DOI[k])==F){cat(', doi:', papers$DOI[k], sep='')} # commented out as scholar does not have DOI
+}# end of Harvard
+if(paramsx$style == 'APA'){
+  cat('- ', papers$Authors[k], " (", papers$Year[k], "). ", papers$Title[k], '. *', papers$Journal[k], '*', sep='')
+  # add volume/issue/doi if not null
+  if(is.na(papers$Volume[k])==F){cat(', **', papers$Volume[k], '**', sep='')}  
+  if(is.na(papers$Pages[k])==F){
+    pages = papers$Pages[k]
+    pages = gsub('--', '-', pages) # try to get en dash?
+    cat(', ', pages, sep='')
+  }  
+ # if(is.na(papers$DOI[k])==F){cat(' doi:', papers$DOI[k], sep='')}# commented out as scholar does not have DOI
+} # end of APA
+  cat('  \n') # line break
+} # end of for loop
+```
